@@ -1,0 +1,6 @@
+university,major,region,country,tuition_level,teaching_style,language,tags,city_size,class_size,project_ratio,theory_ratio,coop_internships,mentorship_level,competition_intensity,career_outcomes_strength,research_intensity,cost_of_living_level,scholarship_friendly,duration_years,brand_prestige,min_gpa,min_ielts,min_sat
+Aalto University,Design and Technology,Northern Europe,Finland,medium,studio-project,en,"creative,project,design,innovation,collaborative,portfolio",small,small,4.6,2.2,yes,4.2,3.2,4.1,3.3,med,3.8,3,4.0,3.0,6.0,1200
+TU Delft,Environmental Engineering,Western Europe,Netherlands,medium,project,en,"engineering,math,impact,systems,fieldwork,collaborative",medium,medium,4.1,3.2,yes,3.6,4.0,4.4,3.8,med,3.0,3,3.9,3.2,6.0,1250
+UCL,Computer Science,Western Europe,UK,high,theory,en,"software,algorithms,cs,math,analysis,prestige",big,large,2.4,4.6,no,2.8,4.5,4.7,4.2,high,2.0,3,4.8,3.5,6.5,1350
+Politecnico di Milano,Industrial Design,Southern Europe,Italy,low,studio-project,en,"design,creative,manufacture,portfolio,collaborative",big,medium,4.5,2.5,yes,3.4,3.6,3.9,2.6,med,3.2,3,3.8,3.0,6.0,1100
+ETH Zurich,Electrical Engineering,Western Europe,Switzerland,high,theory-research,en,"math,physics,hardware,rigor,research,prestige",medium,medium,2.8,4.7,no,3.0,4.6,4.8,4.7,high,2.2,3,4.9,3.7,6.5,1400
