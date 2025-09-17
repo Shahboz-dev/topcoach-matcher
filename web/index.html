@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>TopCoach – Conversational Major Match</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#0f172a; --panel:#111827; --muted:#94a3b8; --text:#e5e7eb;
+      --accent:#22c55e; --accent2:#60a5fa; --chip:#1f2937; --danger:#ef4444; --card:#0b1220;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial}
+    .wrap{max-width:960px;margin:36px auto;padding:0 16px}
+    h1{margin:0 0 6px}
+    .sub{color:var(--muted);margin-bottom:16px}
+    .top{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+      background:var(--panel); padding:12px; border-radius:12px; position:sticky; top:0; z-index:10;
+    }
+    .btn{background:var(--accent); color:#05290f; border:none; border-radius:10px; padding:10px 14px; font-weight:600; cursor:pointer}
+    .btn.secondary{background:#1f2937; color:var(--text)}
+    .barbox{display:flex; gap:12px; flex-wrap:wrap; margin-left:auto}
+    .meter{min-width:220px; flex:1}
+    .meter label{display:flex; justify-content:space-between; color:var(--muted); font-size:13px; margin-bottom:6px}
+    .bar{height:8px;background:#1f2937;border-radius:999px;overflow:hidden}
+    .fill{height:100%;background:linear-gradient(90deg,var(--accent),#16a34a 60%,#0ea5e9);width:0}
+    .chat{background:var(--panel); border-radius:14px; padding:14px; margin-top:12px; max-height:62vh; overflow:auto}
+    .bubble{max-width:76%; padding:10px 12px; border-radius:14px; margin:8px 0; white-space:pre-wrap}
+    .me{background:#1f2937;margin-left:auto}
+    .bot{background:#0b1220;border:1px solid #0f1a30}
+    .composer{display:flex; gap:10px; margin-top:12px}
+    .composer input{flex:1;background:#0b1020;color:var(--text);border:1px solid #1f2937;border-radius:10px;padding:10px 12px}
+    .send{background:#1f2937;color:var(--text);border:none;border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer}
+    .conflicts{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px}
+    .pill{padding:8px 10px;border-radius:10px;background:#2b1212;color:#fecaca;border:1px solid #7f1d1d;font-size:13px}
+    .results{margin-top:16px;background:var(--panel);border-radius:14px;padding:14px}
+    .maj{background:var(--card);border:1px solid #0f1a30;padding:12px;border-radius:12px;margin:10px 0}
+    .maj h3{margin:0 0 8px}
+    .fit{height:8px;background:#182132;border-radius:999px;overflow:hidden;margin:6px 0 10px}
+    .fit > div{height:100%;background:linear-gradient(90deg,var(--accent2),#22d3ee);width:0}
+    .comp{display:grid;grid-template-columns:120px 1fr 40px;gap:10px;align-items:center;font-size:13px;color:#a5b4fc}
+    .compbar{height:6px;background:#132137;border-radius:999px;overflow:hidden}
+    .compbar>div{height:100%;background:linear-gradient(90deg,#60a5fa,#34d399);width:0}
+    .uni{margin-top:6px;font-size:14px;color:#cbd5e1}
+    .muted{color:var(--muted);font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>TopCoach – Conversational Major Match</h1>
+    <div class="sub">Type naturally. No templates. The AI leads like a real consultant and shortlists majors & universities from our dataset only.</div>
+
+    <div class="top">
+      <button id="startBtn" class="btn">Start</button>
+      <button id="resetBtn" class="btn secondary">New session</button>
+      <div class="barbox">
+        <div class="meter">
+          <label><span>Profile completeness</span><span id="profilePct">0%</span></label>
+          <div class="bar"><div class="fill" id="profileFill"></div></div>
+        </div>
+        <div class="meter">
+          <label><span>Confidence</span><span id="confPct">0%</span></label>
+          <div class="bar"><div class="fill" id="confFill"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="conflicts" id="conflicts"></div>
+
+    <div class="chat" id="chat"></div>
+
+    <div class="composer">
+      <input id="msg" type="text" placeholder="Type your answer… (press Enter)" />
+      <button id="sendBtn" class="send">Send</button>
+    </div>
+
+    <div class="results" id="results" style="display:none">
+      <div class="muted" id="stageTag"></div>
+      <div id="majors"></div>
+      <div class="muted">These recommendations are computed from your conversation and our program database.</div>
+    </div>
+  </div>
+
+<script>
+const api = (path, body) =>
+  fetch(path, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})
+  .then(r => { if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
+
+const chatEl = document.getElementById('chat');
+const resultsEl = document.getElementById('results');
+const majorsEl = document.getElementById('majors');
+const stageTag = document.getElementById('stageTag');
+
+const profileFill = document.getElementById('profileFill');
+const confFill = document.getElementById('confFill');
+const profilePct = document.getElementById('profilePct');
+const confPct = document.getElementById('confPct');
+
+const msgEl = document.getElementById('msg');
+const startBtn = document.getElementById('startBtn');
+const resetBtn = document.getElementById('resetBtn');
+
+let userId = crypto.randomUUID();
+
+function bubble(text, who='bot'){
+  const b = document.createElement('div');
+  b.className = `bubble ${who==='me'?'me':'bot'}`;
+  b.textContent = text;
+  chatEl.appendChild(b);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+function setMeters(profile, conf){
+  profilePct.textContent = `${profile}%`;
+  confPct.textContent = `${conf}%`;
+  profileFill.style.width = `${profile}%`;
+  confFill.style.width = `${conf}%`;
+}
+
+function renderConflicts(list){
+  const box = document.getElementById('conflicts');
+  box.innerHTML = '';
+  (list||[]).forEach(code=>{
+    const d = document.createElement('div');
+    d.className = 'pill';
+    d.textContent = conflictText(code);
+    box.appendChild(d);
+  });
+}
+
+function conflictText(code){
+  switch(code){
+    case 'prestige_low_budget': return 'Tension: prestige vs low budget';
+    case 'highcost_region_low_budget': return 'Tension: high-cost region with low budget';
+    case 'bigcity_lowstress': return 'Tension: big-city vibe vs low-stress academics';
+    case 'ambition_score_gap': return 'Tension: big ambitions vs current scores';
+    case 'family_vs_interest': return 'Tension: family expectations vs your interests';
+    default: return 'Tension in preferences — we’ll resolve it together';
+  }
+}
+
+function renderMajors(items, stage){
+  majorsEl.innerHTML = '';
+  if(!items || items.length===0){
+    resultsEl.style.display='none';
+    return;
+  }
+  resultsEl.style.display='block';
+  stageTag.textContent = `Stage: ${stage}`;
+
+  items.forEach(item=>{
+    const card = document.createElement('div');
+    card.className = 'maj';
+    const title = document.createElement('h3');
+    title.textContent = `${item.name} — ${Math.round(item.fit_score*100)}% fit`;
+    card.appendChild(title);
+
+    const fit = document.createElement('div');
+    fit.className='fit';
+    const inner = document.createElement('div');
+    inner.style.width = `${Math.round(item.fit_score*100)}%`;
+    fit.appendChild(inner);
+    card.appendChild(fit);
+
+    const reason = document.createElement('div');
+    reason.className = 'muted';
+    reason.textContent = item.reasoning || 'Reasoning unavailable';
+    card.appendChild(reason);
+
+    Object.entries(item.components||{}).forEach(([k,v])=>{
+      const row = document.createElement('div'); row.className='comp';
+      const label = document.createElement('div'); label.textContent = niceName(k);
+      const bar = document.createElement('div'); bar.className='compbar';
+      const f = document.createElement('div'); f.style.width = `${Math.round(v*100)}%`;
+      bar.appendChild(f);
+      const pct = document.createElement('div'); pct.textContent = `${Math.round(v*100)}%`;
+      row.appendChild(label); row.appendChild(bar); row.appendChild(pct);
+      card.appendChild(row);
+    });
+
+    if(item.cautions && item.cautions.length){
+      const warn = document.createElement('div');
+      warn.className='muted';
+      warn.style.color = '#fca5a5';
+      warn.style.marginTop='6px';
+      warn.textContent = 'Cautions: ' + item.cautions.join('; ');
+      card.appendChild(warn);
+    }
+
+    if(item.universities && item.universities.length){
+      item.universities.forEach(u=>{
+        const li = document.createElement('div');
+        li.className='uni';
+        li.textContent = `• ${u.name} — ${u.reason}`;
+        card.appendChild(li);
+      });
+    }
+
+    majorsEl.appendChild(card);
+  });
+}
+
+function niceName(k){
+  const map = {
+    fit_values:'values & interests',
+    learning_style:'project/learning style',
+    outcomes:'career outcomes',
+    prestige:'brand prestige',
+    mentorship:'mentorship',
+    city_vibe:'city/campus vibe',
+    research:'research intensity',
+    cost_total:'affordability',
+    scholarship:'scholarship odds'
+  };
+  return map[k] || k.replace('_',' ');
+}
+
+async function start(){
+  chatEl.innerHTML = '';
+  resultsEl.style.display='none';
+  setMeters(0,0);
+  bubble('Starting session…','bot');
+
+  try{
+    const res = await api('/start', {user_id:userId, metadata:{}});
+    if(res.reply) bubble(res.reply,'bot');
+    // Server now appends the next probe inside the reply when needed
+    setMeters(res.profile_pct, res.confidence_pct);
+  }catch(e){
+    bubble('Failed to start. Is the API running on port 8000?', 'bot');
+    console.error(e);
+  }
+}
+
+async function send(text){
+  if(!text) return;
+  bubble(text,'me');
+  msgEl.value = '';
+
+  try{
+    const res = await api('/chat', {user_id:userId, message:text, metadata:{}});
+    if(res.reply) bubble(res.reply,'bot');
+
+    setMeters(res.profile_pct, res.confidence_pct);
+    renderConflicts(res.conflicts);
+
+    if(res.suggested_majors && res.suggested_majors.length){
+      renderMajors(res.suggested_majors, res.stage);
+    }
+  }catch(e){
+    bubble('Failed to send: '+e.message, 'bot');
+  }
+}
+
+startBtn.onclick = ()=> start();
+resetBtn.onclick = ()=>{ userId = crypto.randomUUID(); start(); }
+msgEl.addEventListener('keydown', e=>{ if(e.key==='Enter'){ send(msgEl.value.trim()); } });
+document.getElementById('sendBtn').onclick = ()=> send(msgEl.value.trim());
+
+// auto-start
+start();
+</script>
+</body>
+</html>
